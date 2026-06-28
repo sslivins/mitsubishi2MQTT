@@ -460,6 +460,10 @@ void initCaptivePortal() {
 void initMqtt() {
   mqtt_client.setServer(mqtt_server.c_str(), atoi(mqtt_port.c_str()));
   mqtt_client.setCallback(mqttCallback);
+  // Weak-signal hardening: bound the socket timeout so a lossy link can't wedge
+  // the main loop inside a blocking connect()/read for the 15s default.
+  mqtt_client.setSocketTimeout(MQTT_SOCKET_TIMEOUT_S);
+  mqtt_client.setKeepAlive(MQTT_KEEPALIVE_S);
   mqttConnect();
 }
 
@@ -1738,6 +1742,16 @@ bool connectWifi() {
   }
 #ifdef ESP32
   WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
+#endif
+  // Weak-signal hardening: disable WiFi modem-sleep. By default the ESP8266
+  // powers its radio down between DTIM beacons in STA mode; on a marginal link
+  // this leads to missed beacons and AP-side deauths (the chronic flapping seen
+  // on weak units). Full power keeps the link up at the cost of ~20mA (these
+  // boards are mains-powered via the HVAC 5V rail, so power draw is irrelevant).
+#ifdef ESP32
+  WiFi.setSleep(false);
+#else
+  WiFi.setSleepMode(WIFI_NONE_SLEEP);
 #endif
   WiFi.begin(ap_ssid.c_str(), ap_pwd.c_str());
   // Serial.println("Connecting to " + ap_ssid);
