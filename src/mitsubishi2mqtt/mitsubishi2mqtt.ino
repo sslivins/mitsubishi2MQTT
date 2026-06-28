@@ -1783,11 +1783,13 @@ bool connectWifi() {
   WiFi.setSleep(false);
 #else
   WiFi.setSleepMode(WIFI_NONE_SLEEP);
-  // Weak-signal hardening: set WiFi TX power (configurable on the WiFi setup
-  // page). Empty config => maximum (20.5 dBm). Higher power helps marginal links.
-  if (wifi_tx_power.length() == 0) {
-    WiFi.setOutputPower(20.5);
-  } else {
+  // WiFi TX power (configurable on the WiFi setup page). When left EMPTY we do
+  // NOT touch the radio and keep the SDK's per-channel calibrated default.
+  // Forcing a flat 20.5 dBm max here was observed to DESTABILIZE an otherwise
+  // rock-solid unit (eric): disabling the calibrated backoff pushes the PA hot,
+  // causing RF self-distortion/brownout -> loop stalls -> MQTT -4 timeouts and a
+  // wedged web server. Only override when an explicit value is configured.
+  if (wifi_tx_power.length() > 0) {
     float txp = wifi_tx_power.toFloat();
     if (txp < 0) txp = 0;
     if (txp > 20.5) txp = 20.5;
