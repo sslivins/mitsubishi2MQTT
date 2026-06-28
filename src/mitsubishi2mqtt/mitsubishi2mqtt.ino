@@ -235,7 +235,7 @@ bool loadWifi() {
   // Allocate a buffer to store contents of the file.
   std::unique_ptr<char[]> buf(new char[size]);
   configFile.readBytes(buf.get(), size);
-  const size_t capacity = JSON_OBJECT_SIZE(4) + 130;
+  const size_t capacity = JSON_OBJECT_SIZE(5) + 160;
   DynamicJsonDocument doc(capacity);
   deserializeJson(doc, buf.get());
   hostname = doc["hostname"].as<String>();
@@ -246,6 +246,12 @@ bool loadWifi() {
     ota_pwd  = doc["ota_pwd"].as<String>();
   } else {
     ota_pwd = "";
+  }
+  //WiFi TX power: absent (e.g. config from older firmware) means use max
+  if (doc.containsKey("tx_power")) {
+    wifi_tx_power = doc["tx_power"].as<String>();
+  } else {
+    wifi_tx_power = "";
   }
   return true;
 }
@@ -419,13 +425,14 @@ void saveUnit(String tempUnit, String supportMode, String loginPassword, String 
   configFile.close();
 }
 
-void saveWifi(String apSsid, String apPwd, String hostName, String otaPwd) {
-  const size_t capacity = JSON_OBJECT_SIZE(4) + 130;
+void saveWifi(String apSsid, String apPwd, String hostName, String otaPwd, String txPower) {
+  const size_t capacity = JSON_OBJECT_SIZE(5) + 160;
   DynamicJsonDocument doc(capacity);
   doc["ap_ssid"] = apSsid;
   doc["ap_pwd"] = apPwd;
   doc["hostname"] = hostName;
   doc["ota_pwd"] = otaPwd;
+  doc["tx_power"] = txPower;
   File configFile = SPIFFS.open(wifi_conf, "w");
   if (!configFile) {
     // Serial.println(F("Failed to open wifi file for writing"));
@@ -581,7 +588,7 @@ void handleSaveWifi() {
 
   // Serial.println(F("Saving wifi config"));
   if (server.method() == HTTP_POST) {
-    saveWifi(server.arg("ssid"), server.arg("psk"), server.arg("hn"), server.arg("otapwd"));
+    saveWifi(server.arg("ssid"), server.arg("psk"), server.arg("hn"), server.arg("otapwd"), server.arg("txpower"));
   }
   String initSavePage =  FPSTR(html_init_save);
   initSavePage.replace("_TXT_INIT_REBOOT_MESS_",FPSTR(txt_init_reboot_mes));
@@ -794,7 +801,7 @@ void handleWifi() {
   if (!checkLogin()) return;
 
   if (server.method() == HTTP_POST) {
-    saveWifi(server.arg("ssid"), server.arg("psk"), server.arg("hn"), server.arg("otapwd"));
+    saveWifi(server.arg("ssid"), server.arg("psk"), server.arg("hn"), server.arg("otapwd"), server.arg("txpower"));
     rebootAndSendPage();
 #ifdef ESP32
     ESP.restart();
@@ -820,6 +827,7 @@ void handleWifi() {
     wifiPage.replace(F("_SSID_"), str_ap_ssid);
     wifiPage.replace(F("_PSK_"), str_ap_pwd);
     wifiPage.replace(F("_OTA_PWD_"), str_ota_pwd);
+    wifiPage.replace(F("_WIFI_TX_POWER_"), wifi_tx_power);
     sendWrappedHTML(wifiPage);
   }
 
@@ -1763,6 +1771,16 @@ bool connectWifi() {
   WiFi.setSleep(false);
 #else
   WiFi.setSleepMode(WIFI_NONE_SLEEP);
+  // Weak-signal hardening: set WiFi TX power (configurable on the WiFi setup
+  // page). Empty config => maximum (20.5 dBm). Higher power helps marginal links.
+  if (wifi_tx_power.length() == 0) {
+    WiFi.setOutputPower(20.5);
+  } else {
+    float txp = wifi_tx_power.toFloat();
+    if (txp < 0) txp = 0;
+    if (txp > 20.5) txp = 20.5;
+    WiFi.setOutputPower(txp);
+  }
 #endif
   WiFi.begin(ap_ssid.c_str(), ap_pwd.c_str());
   // Serial.println("Connecting to " + ap_ssid);

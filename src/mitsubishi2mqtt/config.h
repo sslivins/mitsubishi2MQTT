@@ -47,6 +47,7 @@ String hostname = "";
 String ap_ssid;
 String ap_pwd;
 String ota_pwd;
+String wifi_tx_power = ""; // ESP8266 WiFi TX power in dBm (0-20.5); empty = max (20.5). Raise for weak signal.
 
 // Define global variables for MQTT
 String mqtt_fn;
