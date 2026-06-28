@@ -79,6 +79,11 @@ unsigned long lastHpSync;
 unsigned int hpConnectionRetries;
 unsigned int hpConnectionTotalRetries;
 unsigned long lastRemoteTemp;
+// Weak-signal telemetry: monotonic counters exposed via /metrics to evaluate
+// WiFi link stability (reset to 0 on every reboot).
+unsigned long wifiDisconnectsTotal = 0; // count of STA WiFi drops since boot
+unsigned long mqttConnectsTotal = 0;    // count of successful MQTT (re)connections since boot
+bool wifiWasConnected = false;          // edge-detect for wifiDisconnectsTotal
 
 //Local state
 StaticJsonDocument<JSON_OBJECT_SIZE(12)> rootInfo;
@@ -1046,6 +1051,11 @@ void handleMetrics(){
   metrics.replace("_MODE_", hpmode);
   metrics.replace("_OPER_", (String)currentStatus.operating);
   metrics.replace("_COMPFREQ_", (String)currentStatus.compressorFrequency);
+  metrics.replace("_RSSI_", (String)WiFi.RSSI());
+  metrics.replace("_WIFIDISC_", (String)wifiDisconnectsTotal);
+  metrics.replace("_MQTTCONN_", (String)mqttConnectsTotal);
+  metrics.replace("_UPTIME_", (String)(millis() / 1000));
+  metrics.replace("_FREEHEAP_", (String)ESP.getFreeHeap());
   server.send(200, F("text/plain"), metrics);
 
 }
@@ -1712,6 +1722,7 @@ void mqttConnect() {
     }
     // We are connected
     else    {
+      mqttConnectsTotal++;
       mqtt_client.subscribe(ha_system_set_topic.c_str());
       mqtt_client.subscribe(ha_debug_pckts_set_topic.c_str());
       mqtt_client.subscribe(ha_debug_logs_set_topic.c_str());
@@ -1909,6 +1920,13 @@ void loop() {
   } else if (wifi_config_exists and millis() > wifi_timeout) {
 	  ESP.restart();
   }
+
+  // Weak-signal telemetry: count WiFi drops (connected -> not connected edges).
+  bool wifiNowConnected = (WiFi.getMode() == WIFI_STA and WiFi.status() == WL_CONNECTED);
+  if (wifiWasConnected and !wifiNowConnected) {
+    wifiDisconnectsTotal++;
+  }
+  wifiWasConnected = wifiNowConnected;
 
   if (!captive) {
     // Sync HVAC UNIT

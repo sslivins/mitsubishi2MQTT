@@ -45,4 +45,19 @@ mitsubishi_operating{hostname="_UNIT_NAME_"} _OPER_
 # HELP mitsubishi_compressor_frequency Heat pump compressor frequency
 # TYPE mitsubishi_compressor_frequency gauge
 mitsubishi_compressor_frequency{hostname="_UNIT_NAME_"} _COMPFREQ_
+# HELP mitsubishi_wifi_rssi_dbm WiFi signal strength in dBm
+# TYPE mitsubishi_wifi_rssi_dbm gauge
+mitsubishi_wifi_rssi_dbm{hostname="_UNIT_NAME_"} _RSSI_
+# HELP mitsubishi_wifi_disconnects_total WiFi disconnect events since boot
+# TYPE mitsubishi_wifi_disconnects_total counter
+mitsubishi_wifi_disconnects_total{hostname="_UNIT_NAME_"} _WIFIDISC_
+# HELP mitsubishi_mqtt_connects_total Successful MQTT (re)connections since boot
+# TYPE mitsubishi_mqtt_connects_total counter
+mitsubishi_mqtt_connects_total{hostname="_UNIT_NAME_"} _MQTTCONN_
+# HELP mitsubishi_uptime_seconds Seconds since last boot
+# TYPE mitsubishi_uptime_seconds gauge
+mitsubishi_uptime_seconds{hostname="_UNIT_NAME_"} _UPTIME_
+# HELP mitsubishi_free_heap_bytes Free heap memory in bytes
+# TYPE mitsubishi_free_heap_bytes gauge
+mitsubishi_free_heap_bytes{hostname="_UNIT_NAME_"} _FREEHEAP_
 )====";
