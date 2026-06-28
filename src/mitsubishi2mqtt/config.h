@@ -104,10 +104,15 @@ String temp_step                   = "1"; // Temperature setting step, check val
 const PROGMEM uint32_t SEND_ROOM_TEMP_INTERVAL_MS = 30000; // 45 seconds (anything less may cause bouncing)
 const PROGMEM uint32_t CHECK_REMOTE_TEMP_INTERVAL_MS = 300000; //5 minutes
 const PROGMEM uint32_t MQTT_RETRY_INTERVAL_MS = 1000; // 1 second
-// Weak-signal hardening: keep PubSubClient from blocking the main loop for the
-// full default 15s socket timeout when SYN/CONNACK packets are lost on a lossy
-// link. A short timeout lets the loop keep servicing the heat pump and web UI.
-const PROGMEM uint16_t MQTT_SOCKET_TIMEOUT_S = 2; // seconds (default PubSubClient = 15)
+// PubSubClient socket timeout. NOTE: this value is used not only for connect()
+// but also for blocking mid-packet byte reads inside loop(); on a contended
+// 2.4GHz channel (even at strong RSSI) the bytes of an inbound MQTT packet can
+// arrive several seconds apart, and a too-short value makes PubSubClient declare
+// a false MQTT_CONNECTION_TIMEOUT and drop/reconnect (~1/min churn observed on a
+// unit with -50dBm but a busy channel). Keep at the library default of 15s to
+// avoid false disconnects; the 5-minute dead-WiFi failsafe reboot (loop()) still
+// bounds a truly wedged link.
+const PROGMEM uint16_t MQTT_SOCKET_TIMEOUT_S = 15; // seconds (PubSubClient default)
 const PROGMEM uint16_t MQTT_KEEPALIVE_S = 15; // seconds (PubSubClient default)
 const PROGMEM uint32_t HP_RETRY_INTERVAL_MS = 1000; // 1 second
 const PROGMEM uint32_t HP_MAX_RETRIES = 10; // Double the interval between retries up to this many times, then keep retrying forever at that maximum interval.

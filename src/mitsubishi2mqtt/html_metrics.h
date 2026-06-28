@@ -54,6 +54,12 @@ mitsubishi_wifi_disconnects_total{hostname="_UNIT_NAME_"} _WIFIDISC_
 # HELP mitsubishi_mqtt_connects_total Successful MQTT (re)connections since boot
 # TYPE mitsubishi_mqtt_connects_total counter
 mitsubishi_mqtt_connects_total{hostname="_UNIT_NAME_"} _MQTTCONN_
+# HELP mitsubishi_mqtt_last_disconnect_state PubSubClient state() at last detected MQTT drop (-4 timeout,-3 conn lost,-2 connect failed,-1 disconnected,>=1 refused)
+# TYPE mitsubishi_mqtt_last_disconnect_state gauge
+mitsubishi_mqtt_last_disconnect_state{hostname="_UNIT_NAME_"} _MQTTSTATE_
+# HELP mitsubishi_mqtt_state Current PubSubClient state() (0 = connected)
+# TYPE mitsubishi_mqtt_state gauge
+mitsubishi_mqtt_state{hostname="_UNIT_NAME_"} _MQTTNOW_
 # HELP mitsubishi_uptime_seconds Seconds since last boot
 # TYPE mitsubishi_uptime_seconds gauge
 mitsubishi_uptime_seconds{hostname="_UNIT_NAME_"} _UPTIME_

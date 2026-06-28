@@ -84,6 +84,15 @@ unsigned long lastRemoteTemp;
 unsigned long wifiDisconnectsTotal = 0; // count of STA WiFi drops since boot
 unsigned long mqttConnectsTotal = 0;    // count of successful MQTT (re)connections since boot
 bool wifiWasConnected = false;          // edge-detect for wifiDisconnectsTotal
+// Diagnostic: PubSubClient state() captured the moment the loop detects the MQTT
+// link is down (before reconnecting). Lets /metrics report WHY we disconnected
+// (-4=timeout, -3=conn lost, -2=connect failed, -1=disconnected, >=1=refused).
+int lastMqttState = 0;
+// Publish the (retained) HA discovery config only once per boot, not on every
+// MQTT reconnect. Re-publishing the large discovery payload on each reconnect
+// makes HA tear down/rebuild the entity (visible "flap") and the heavy publish
+// can wedge the single-threaded web server.
+bool haConfigPublished = false;
 
 //Local state
 StaticJsonDocument<JSON_OBJECT_SIZE(12)> rootInfo;
@@ -1062,6 +1071,8 @@ void handleMetrics(){
   metrics.replace("_RSSI_", (String)WiFi.RSSI());
   metrics.replace("_WIFIDISC_", (String)wifiDisconnectsTotal);
   metrics.replace("_MQTTCONN_", (String)mqttConnectsTotal);
+  metrics.replace("_MQTTSTATE_", (String)lastMqttState);
+  metrics.replace("_MQTTNOW_", (String)mqtt_client.state());
   metrics.replace("_UPTIME_", (String)(millis() / 1000));
   metrics.replace("_FREEHEAP_", (String)ESP.getFreeHeap());
   server.send(200, F("text/plain"), metrics);
@@ -1742,8 +1753,9 @@ void mqttConnect() {
       mqtt_client.subscribe(ha_remote_temp_set_topic.c_str());
       mqtt_client.subscribe(ha_custom_packet.c_str());
       mqtt_client.publish(ha_availability_topic.c_str(), mqtt_payload_available, true); //publish status as available
-      if (others_haa) {
+      if (others_haa && !haConfigPublished) {
         haConfig();
+        haConfigPublished = true;
       }
     }
   }
@@ -1967,6 +1979,7 @@ void loop() {
 		//MQTT failed retry to connect
 		if (mqtt_client.state() < MQTT_CONNECTED)
 		{
+		  lastMqttState = mqtt_client.state(); // record disconnect reason for /metrics
 		  if ((millis() - lastMqttRetry > MQTT_RETRY_INTERVAL_MS) or lastMqttRetry == 0) {
 		    mqttConnect();
 		  }
